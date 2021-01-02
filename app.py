@@ -13,7 +13,8 @@ def create_app(test_config=None):
     def get_greeting():
         excited = os.environ['EXCITED']
         greeting = "Hello"
-        if excited == 'true': greeting = greeting + "!!!!!"
+        if excited == 'true':
+            greeting = greeting + "!!!!!"
         return greeting
 
     @app.route('/coolkids')
