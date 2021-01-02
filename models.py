@@ -1,6 +1,6 @@
 import os
 
-from sqlalchemy import Column, String, create_engine, Integer
+from sqlalchemy import Column, String, create_engine, Integer, BigInteger
 from flask_sqlalchemy import SQLAlchemy
 import json
 
@@ -44,3 +44,28 @@ class Person(db.Model):
             'id': self.id,
             'name': self.name,
             'catchphrase': self.catchphrase}
+
+
+'''
+Movie
+Have title and release year
+'''
+
+
+class Movie(db.Model):
+    __tablename__ = 'Movies'
+
+    id = Column(Integer, primary_key=True)
+    title = Column(String)
+    release = Column(BigInteger)
+
+    def __init__(self, title, release):
+        self.title = title
+        self.catchphrase = release
+
+    def format(self):
+        return {
+            'id': self.id,
+            'title': self.title,
+            'release': self.release
+        }
