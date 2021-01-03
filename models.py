@@ -1,6 +1,6 @@
 import os
-
-from sqlalchemy import Column, String, create_engine, Integer, BigInteger
+import enum
+from sqlalchemy import Column, String, create_engine, Integer, BigInteger, SmallInteger, Enum
 from flask_sqlalchemy import SQLAlchemy
 import json
 
@@ -68,4 +68,37 @@ class Movie(db.Model):
             'id': self.id,
             'title': self.title,
             'release': self.release
+        }
+
+
+'''
+Actor
+Have name, age, and gender
+'''
+
+
+class GenderEnum(enum.Enum):
+    Male = 1
+    Female = 2
+    Unspecified = 3
+
+
+class Actor(db.Model):
+    __tablename__ = 'Actors'
+
+    id = Column(Integer, primary_key=True)
+    name = Column(String)
+    age = Column(SmallInteger)
+    gender = Column(Enum(GenderEnum))
+
+    def __init__(self, name, age, gender=GenderEnum.Unspecified):
+        self.name = name
+        self.age = age
+        self.gender = gender
+
+    def format(self):
+        return {
+            'name': self.name,
+            'age': self.age,
+            'gender': self.gender
         }
