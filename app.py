@@ -1,7 +1,8 @@
 import os
-from flask import Flask
+from flask import Flask, jsonify
 from flask_cors import CORS
 from models import setup_db
+from auth.auth import requires_auth
 
 
 def create_app(test_config=None):
@@ -20,6 +21,11 @@ def create_app(test_config=None):
     @app.route('/coolkids')
     def be_cool():
         return "Be cool, man, be coooool! You're almost a FSND grad!"
+
+    @app.route('/api/actors')
+    @requires_auth('view:actors')
+    def show_actors():
+        return jsonify([])
 
     return app
 
