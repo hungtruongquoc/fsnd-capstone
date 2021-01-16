@@ -24,7 +24,7 @@ def create_app(test_config=None):
 
     @app.route('/api/actors')
     @requires_auth('view:actors')
-    def show_actors():
+    def show_actors(payload):
         return jsonify([])
 
     return app
