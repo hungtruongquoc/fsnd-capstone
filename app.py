@@ -5,6 +5,8 @@ from models import setup_db
 from auth.auth import requires_auth
 from models import GenderEnum, Actor
 
+RECORDS_PER_PAGE = 10
+
 
 def create_app(test_config=None):
     app = Flask(__name__)
@@ -26,7 +28,36 @@ def create_app(test_config=None):
     @app.route('/api/actors')
     @requires_auth('view:actors')
     def show_actors(payload):
-        return jsonify([])
+        current_page = int(request.args.get('page'))
+        per_page = int(request.args.get('perPage'))
+        sort_field = request.args.get('sortField')
+        sort_order = request.args.get('sortOrder')
+        status_values = list(map(lambda value: int(value), request.args.getlist('status[]')))
+
+        if per_page is None:
+            per_page = RECORDS_PER_PAGE
+
+        field = getattr(Actor, sort_field)
+        sort_function = getattr(field, sort_order)
+
+        query = Actor.query.order_by(sort_function())
+
+        if (status_values is not None) and (len(status_values) > 0):
+            print(status_values)
+            enum_objs = list(map(lambda value: GenderEnum(value), status_values))
+            query = query.filter(Actor.gender.in_(enum_objs))
+
+        actors = query.paginate(per_page=per_page, page=current_page)
+
+        if len(actors.items) == 0:
+            abort(404)
+
+        return jsonify({
+            'actors': list(map(lambda actor: actor.format(), actors.items)),
+            'totalCount': actors.total,
+            'currentPage': current_page,
+            'perPage': per_page
+        })
 
     @app.route('/api/actors', methods=['POST'])
     @requires_auth('create:actor')
