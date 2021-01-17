@@ -22,6 +22,8 @@ class RepositoryMixin:
         try:
             db.session.add(self)
             db.session.commit()
+            db.session.refresh(self)
+            db.session.expunge(self)
             return True
         except:
             db.session.rollback()
@@ -86,7 +88,7 @@ class Movie(db.Model, RepositoryMixin):
     id = Column(Integer, primary_key=True)
     title = Column(String)
     release = Column(BigInteger)
-    crew = db.relationship('Crews', backref='Movies', lazy='joined')
+    # crew = db.relationship('Crews', backref='Movies', lazy='joined')
 
     def __init__(self, title, release):
         self.title = title
@@ -119,7 +121,7 @@ class Actor(db.Model, RepositoryMixin):
     name = Column(String)
     age = Column(SmallInteger)
     gender = Column(Enum(GenderEnum))
-    crew = db.relationship('Crews', backref='Actors', lazy='joined')
+    # crew = db.relationship('Crews', backref='Actors', lazy='joined')
 
     def __init__(self, name, age, gender=GenderEnum.Unspecified):
         self.name = name
@@ -130,7 +132,8 @@ class Actor(db.Model, RepositoryMixin):
         return {
             'name': self.name,
             'age': self.age,
-            'gender': self.gender
+            'gender': self.gender.value,
+            'id': self.id
         }
 
 
@@ -140,5 +143,5 @@ class Crew(db.Model, RepositoryMixin):
     id = db.Column(db.Integer, primary_key=True)
     actor_id = db.Column(db.Integer, db.ForeignKey('Actors.id'))
     movie_id = db.Column(db.Integer, db.ForeignKey('Movies.id'))
-    actor = db.relationship('Actors', lazy='joined')
-    movie = db.relationship('Movies', lazy='joined')
+    # actor = db.relationship('Actors', lazy='joined')
+    # movie = db.relationship('Movies', lazy='joined')
