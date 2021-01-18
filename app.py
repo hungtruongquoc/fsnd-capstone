@@ -4,6 +4,7 @@ from flask_cors import CORS
 from models import setup_db
 from auth.auth import requires_auth
 from models import GenderEnum, Actor, Movie
+from helpers.pagination import extract_pagination_params, get_per_page, paginated_request
 
 RECORDS_PER_PAGE = 10
 
@@ -27,16 +28,14 @@ def create_app(test_config=None):
 
     @app.route('/api/actors')
     @requires_auth('view:actors')
-    def show_actors(payload):
-        current_page = int(request.args.get('page'))
-        per_page = int(request.args.get('perPage'))
+    @paginated_request
+    def show_actors(pagination, payload):
         sort_field = request.args.get('sortField')
         sort_order = request.args.get('sortOrder')
         status_values = list(map(lambda value: int(value), request.args.getlist('status[]')))
         name = request.args.get('name')
 
-        if per_page is None:
-            per_page = RECORDS_PER_PAGE
+        pagination['per_page'] = get_per_page(pagination['per_page'], RECORDS_PER_PAGE)
 
         field = getattr(Actor, sort_field)
         sort_function = getattr(field, sort_order)
@@ -51,7 +50,7 @@ def create_app(test_config=None):
         if (name is not None) and ('' != name) and (' ' != name):
             query = query.filter(Actor.name.ilike('%' + name + '%'))
 
-        actors = query.paginate(per_page=per_page, page=current_page)
+        actors = query.paginate(per_page=pagination['per_page'], page=pagination['current_page'])
 
         if len(actors.items) == 0:
             abort(404)
@@ -59,8 +58,8 @@ def create_app(test_config=None):
         return jsonify({
             'actors': list(map(lambda actor: actor.format(), actors.items)),
             'totalCount': actors.total,
-            'currentPage': current_page,
-            'perPage': per_page
+            'currentPage': pagination['current_page'],
+            'perPage': pagination['per_page']
         })
 
     @app.route('/api/actors', methods=['POST'])
@@ -94,8 +93,17 @@ def create_app(test_config=None):
 
     @app.route('/api/movies')
     @requires_auth('view:movies')
-    def show_movies(payload):
-        return jsonify({'movies': []})
+    @paginated_request
+    def show_movies(pagination, payload):
+        pagination['per_page'] = get_per_page(pagination['per_page'], RECORDS_PER_PAGE)
+        query = Movie.query
+        movies = query.paginate(per_page=pagination['per_page'], page=pagination['current_page'])
+        return jsonify({
+            'movies': list(map(lambda movie: movie.format(), movies.items)),
+            'totalCount': movies.total,
+            'currentPage': pagination['current_page'],
+            'perPage': pagination['per_page']
+        })
 
     @app.route('/api/movies', methods=['POST'])
     @requires_auth('create:movie')

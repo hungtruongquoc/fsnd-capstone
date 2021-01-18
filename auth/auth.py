@@ -87,9 +87,6 @@ def check_permissions(permission, payload):
             'code': 'invalid_claims',
             'description': 'Permissions not included in JWT.'
         }, 400)
-    print('Current permission')
-    print(permission)
-    print(payload)
     if permission not in payload['permissions']:
         raise AuthError({
             'code': 'unauthorized',
