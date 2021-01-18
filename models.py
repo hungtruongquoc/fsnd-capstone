@@ -92,7 +92,7 @@ class Movie(db.Model, RepositoryMixin):
 
     def __init__(self, title, release):
         self.title = title
-        self.catchphrase = release
+        self.release = release
 
     def format(self):
         return {
