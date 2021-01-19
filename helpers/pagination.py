@@ -20,6 +20,8 @@ def paginated_request(f):
     def decorated_function(*args, **kwargs):
         # Do something with your request here
         pagination_info = extract_pagination_params()
+        pagination_info['sort_field'] = request.args.get('sortField')
+        pagination_info['sort_order'] = request.args.get('sortOrder')
         return f(pagination_info, *args, **kwargs)
 
     return decorated_function
