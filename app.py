@@ -5,6 +5,7 @@ from models import setup_db
 from auth.auth import requires_auth
 from models import GenderEnum, Actor, Movie
 from helpers.pagination import extract_pagination_params, get_per_page, paginated_request
+from helpers.string import is_empty_string
 
 RECORDS_PER_PAGE = 10
 
@@ -30,24 +31,24 @@ def create_app(test_config=None):
     @requires_auth('view:actors')
     @paginated_request
     def show_actors(pagination, payload):
-        sort_field = request.args.get('sortField')
-        sort_order = request.args.get('sortOrder')
         status_values = list(map(lambda value: int(value), request.args.getlist('status[]')))
         name = request.args.get('name')
 
         pagination['per_page'] = get_per_page(pagination['per_page'], RECORDS_PER_PAGE)
+        field = getattr(Actor, pagination['sort_field'])
+        sort_function = getattr(field, pagination['sort_order'])
 
-        field = getattr(Actor, sort_field)
-        sort_function = getattr(field, sort_order)
+        query = Actor.query
 
-        query = Actor.query.order_by(sort_function())
+        if sort_function is not None:
+            query = query.order_by(sort_function())
 
         if (status_values is not None) and (len(status_values) > 0):
             print(status_values)
             enum_objs = list(map(lambda value: GenderEnum(value), status_values))
             query = query.filter(Actor.gender.in_(enum_objs))
 
-        if (name is not None) and ('' != name) and (' ' != name):
+        if is_empty_string(name):
             query = query.filter(Actor.name.ilike('%' + name + '%'))
 
         actors = query.paginate(per_page=pagination['per_page'], page=pagination['current_page'])
@@ -91,12 +92,34 @@ def create_app(test_config=None):
             print('Invalid gender provided')
             abort(422)
 
+    @app.route("/api/actors/<int:actor_id>", methods=['DELETE'])
+    @requires_auth('delete:actor')
+    def delete_actor(payload, actor_id):
+        actor = Actor.query.filter_by(id=actor_id).first()
+        try:
+            actor.delete_from_db()
+            return jsonify({'success': True})
+        except:
+            abort(500)
+
     @app.route('/api/movies')
     @requires_auth('view:movies')
     @paginated_request
     def show_movies(pagination, payload):
         pagination['per_page'] = get_per_page(pagination['per_page'], RECORDS_PER_PAGE)
+        title = request.args.get('title')
+
+        field = getattr(Movie, pagination['sort_field'])
+        sort_function = getattr(field, pagination['sort_order'])
+
         query = Movie.query
+
+        if sort_function is not None:
+            query = query.order_by(sort_function())
+
+        if is_empty_string(title):
+            query = query.filter(Movie.title.ilike('%' + title + '%'))
+
         movies = query.paginate(per_page=pagination['per_page'], page=pagination['current_page'])
         return jsonify({
             'movies': list(map(lambda movie: movie.format(), movies.items)),
@@ -128,6 +151,16 @@ def create_app(test_config=None):
             'success': result,
             'movie': new_movie.format(),
         })
+
+    @app.route("/api/movies/<int:movie_id>", methods=['DELETE'])
+    @requires_auth('delete:movie')
+    def delete_movie(payload, movie_id):
+        movie = Movie.query.filter_by(id=movie_id).first()
+        try:
+            movie.delete_from_db()
+            return jsonify({'success': True})
+        except:
+            abort(500)
 
     return app
 
