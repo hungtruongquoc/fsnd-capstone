@@ -27,6 +27,11 @@ def create_app(test_config=None):
     def be_cool():
         return "Be cool, man, be coooool! You're almost a FSND grad!"
 
+    @app.route('/api/stats')
+    @requires_auth('view:actors')
+    def show_stats(payload):
+        return jsonify({'movies': Movie.query.count(), 'actors': Actor.query.count()})
+
     @app.route('/api/actors')
     @requires_auth('view:actors')
     @paginated_request
