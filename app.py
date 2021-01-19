@@ -107,6 +107,27 @@ def create_app(test_config=None):
         except:
             abort(500)
 
+    @app.route("/api/actors/<int:actor_id>", methods=['PATCH'])
+    @requires_auth('edit:actor')
+    def update_actor(payload, actor_id):
+        try:
+            actor = Actor.query.filter_by(id=actor_id).first()
+            if 'name' in request.json:
+                actor.name = request.json['name']
+            if 'age' in request.json:
+                actor.age = int(request.json['age'])
+            if 'gender' in request.json:
+                actor.gender = GenderEnum(request.json['gender'])
+            actor.update()
+
+            return jsonify({
+                'success': True,
+                'artist': actor.format()
+            })
+        except Exception as e:
+            print(e)
+            abort(422)
+
     @app.route('/api/movies')
     @requires_auth('view:movies')
     @paginated_request
@@ -156,6 +177,26 @@ def create_app(test_config=None):
             'success': result,
             'movie': new_movie.format(),
         })
+
+    @app.route("/api/movies/<int:movie_id>", methods=['PATCH'])
+    @requires_auth('edit:movie')
+    def update_movie(payload, movie_id):
+        try:
+            movie = Movie.query.filter_by(id=movie_id).first()
+            if 'title' in request.json:
+                movie.title = request.json['title']
+            if 'releaseDate' in request.json:
+                movie.release = int(request.json['releaseDate'])
+
+            movie.update()
+
+            return jsonify({
+                'success': True,
+                'movie': movie.format()
+            })
+        except Exception as e:
+            print(e)
+            abort(422)
 
     @app.route("/api/movies/<int:movie_id>", methods=['DELETE'])
     @requires_auth('delete:movie')
