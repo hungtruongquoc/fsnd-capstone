@@ -3,7 +3,7 @@ from flask import Flask, jsonify, request, abort
 from flask_cors import CORS
 from models import setup_db
 from auth.auth import requires_auth
-from models import GenderEnum, Actor, Movie
+from models import GenderEnum, Actor, Movie, Crew
 from helpers.pagination import extract_pagination_params, get_per_page, paginated_request
 from helpers.string import is_empty_string
 
@@ -36,37 +36,52 @@ def create_app(test_config=None):
     @requires_auth('view:actors')
     @paginated_request
     def show_actors(pagination, payload):
-        status_values = list(map(lambda value: int(value), request.args.getlist('status[]')))
+        gender_values = list(map(lambda value: int(value), request.args.getlist('genders[]')))
         name = request.args.get('name')
+        sort_function = None
 
         pagination['per_page'] = get_per_page(pagination['per_page'], RECORDS_PER_PAGE)
-        field = getattr(Actor, pagination['sort_field'])
-        sort_function = getattr(field, pagination['sort_order'])
+
+        if 'sort_field' in pagination:
+            field = getattr(Actor, pagination['sort_field'])
+            sort_function = getattr(field, pagination['sort_order'])
 
         query = Actor.query
 
         if sort_function is not None:
             query = query.order_by(sort_function())
 
-        if (status_values is not None) and (len(status_values) > 0):
-            print(status_values)
-            enum_objs = list(map(lambda value: GenderEnum(value), status_values))
+        if (gender_values is not None) and (len(gender_values) > 0):
+            enum_objs = list(map(lambda value: GenderEnum(value), gender_values))
             query = query.filter(Actor.gender.in_(enum_objs))
-
+        print(query)
         if is_empty_string(name):
             query = query.filter(Actor.name.ilike('%' + name + '%'))
 
-        actors = query.paginate(per_page=pagination['per_page'], page=pagination['current_page'])
+        if (0 != pagination['per_page']) and (0 != pagination['current_page']):
+            actors = query.paginate(per_page=pagination['per_page'], page=pagination['current_page'])
 
-        if len(actors.items) == 0:
-            abort(404)
+            if 0 == len(actors.items):
+                abort(404)
 
-        return jsonify({
-            'actors': list(map(lambda actor: actor.format(), actors.items)),
-            'totalCount': actors.total,
-            'currentPage': pagination['current_page'],
-            'perPage': pagination['per_page']
-        })
+            return jsonify({
+                'actors': list(map(lambda actor: actor.format(), actors.items)),
+                'totalCount': actors.total,
+                'currentPage': pagination['current_page'],
+                'perPage': pagination['per_page'],
+                'filters': {'genders': gender_values},
+                'sortField': pagination['sort_field'],
+                'sortOrder': pagination['sort_order']
+            })
+        else:
+            actors = query.all()
+
+            if 0 == len(actors):
+                abort(404)
+
+            return jsonify({
+                'actors': list(map(lambda actor: actor.format(), actors)),
+            })
 
     @app.route('/api/actors', methods=['POST'])
     @requires_auth('create:actor')
@@ -132,27 +147,33 @@ def create_app(test_config=None):
     @requires_auth('view:movies')
     @paginated_request
     def show_movies(pagination, payload):
-        pagination['per_page'] = get_per_page(pagination['per_page'], RECORDS_PER_PAGE)
-        title = request.args.get('title')
+        if 'get_all' in pagination:
+            movie_list = Movie.query.order_by(Movie.release.desc()).all()
+            return jsonify({
+                'movies': list(map(lambda movie: movie.format(), movie_list))
+            })
+        else:
+            pagination['per_page'] = get_per_page(pagination['per_page'], RECORDS_PER_PAGE)
+            title = request.args.get('title')
 
-        field = getattr(Movie, pagination['sort_field'])
-        sort_function = getattr(field, pagination['sort_order'])
+            field = getattr(Movie, pagination['sort_field'])
+            sort_function = getattr(field, pagination['sort_order'])
 
-        query = Movie.query
+            query = Movie.query
 
-        if sort_function is not None:
-            query = query.order_by(sort_function())
+            if sort_function is not None:
+                query = query.order_by(sort_function())
 
-        if is_empty_string(title):
-            query = query.filter(Movie.title.ilike('%' + title + '%'))
+            if is_empty_string(title):
+                query = query.filter(Movie.title.ilike('%' + title + '%'))
 
-        movies = query.paginate(per_page=pagination['per_page'], page=pagination['current_page'])
-        return jsonify({
-            'movies': list(map(lambda movie: movie.format(), movies.items)),
-            'totalCount': movies.total,
-            'currentPage': pagination['current_page'],
-            'perPage': pagination['per_page']
-        })
+            movies = query.paginate(per_page=pagination['per_page'], page=pagination['current_page'])
+            return jsonify({
+                'movies': list(map(lambda movie: movie.format(), movies.items)),
+                'totalCount': movies.total,
+                'currentPage': pagination['current_page'],
+                'perPage': pagination['per_page']
+            })
 
     @app.route('/api/movies', methods=['POST'])
     @requires_auth('create:movie')
@@ -207,6 +228,82 @@ def create_app(test_config=None):
             return jsonify({'success': True})
         except:
             abort(500)
+
+    @app.route('/api/crews', methods=['GET'])
+    @requires_auth('update:crew')
+    def get_crew_list(payload):
+        crew_list = Crew.query.all()
+
+        if len(crew_list) == 0:
+            abort(404)
+
+        try:
+            return jsonify({
+                'crews': list(map(lambda crew: crew.format(), crew_list)),
+                'success': False,
+            })
+        except Exception as e:
+            print(e)
+            abort(422)
+
+    @app.route('/api/crews', methods=['POST'])
+    @requires_auth('update:crew')
+    def assign_crew(payload):
+        print('New crew: ')
+        print(request.json)
+
+        try:
+            return jsonify({
+                'success': False,
+            })
+        except Exception as e:
+            print(e)
+            abort(422)
+
+    # Error Handling
+    '''
+    Example error handling for unprocessable entity
+    '''
+
+    @app.errorhandler(422)
+    def unprocessable(error):
+        return jsonify({
+            "success": False,
+            "error": 422,
+            "message": "Unprocessable"
+        }), 422
+
+    '''
+    Handles no resource found error
+    '''
+
+    @app.errorhandler(404)
+    def unprocessable(error):
+        return jsonify({
+            "success": False,
+            "error": 404,
+            "message": "Provided resource cannot be found"
+        }), 404
+
+    '''
+    Handles unauthorized access error
+    '''
+
+    @app.errorhandler(401)
+    def unprocessable(error):
+        return jsonify({
+            "success": False,
+            "error": 401,
+            "message": "Unauthorized access"
+        }), 401
+
+    @app.errorhandler(403)
+    def no_permission_granted(error):
+        return jsonify({
+            "success": False,
+            "error": 403,
+            "message": "No permission granted"
+        }), 403
 
     return app
 
