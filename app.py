@@ -250,12 +250,21 @@ def create_app(test_config=None):
     @requires_auth('update:crew')
     def assign_crew(payload):
         print('New crew: ')
-        print(request.json)
+        movie_id = request.json['movie_id']
+        artist_list = request.json['artists']
+
+        records = Crew.query.filter(Crew.movie_id == request.json['movie_id']).all()
+
+        if len(records) > 0:
+            for record in records:
+                record.delete_from_db()
 
         try:
-            return jsonify({
-                'success': False,
-            })
+            for val in artist_list:
+                new_crew = Crew(actor_id=val, movie_id=movie_id)
+                new_crew.save_to_db()
+
+            return jsonify({'success': True, 'result': request.json})
         except Exception as e:
             print(e)
             abort(422)
