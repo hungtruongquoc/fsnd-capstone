@@ -145,3 +145,10 @@ class Crew(db.Model, RepositoryMixin):
     movie_id = db.Column(db.Integer, db.ForeignKey('Movies.id'))
     actor = db.relationship('Actor', lazy='joined')
     movie = db.relationship('Movie', lazy='joined')
+
+    def format(self):
+        return {
+            'actorId': self.actor_id,
+            'movieId': self.movie_id,
+            'id': self.id
+        }
