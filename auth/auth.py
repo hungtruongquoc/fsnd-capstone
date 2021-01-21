@@ -5,7 +5,9 @@ from jose import jwt
 from urllib.request import urlopen
 import os
 
-AUTH0_DOMAIN = os.environ['AUTH0_DOMAIN']
+AUTH0_DOMAIN = ''
+if 'AUTH0_DOMAIN' in os.environ:
+    AUTH0_DOMAIN = os.environ['AUTH0_DOMAIN']
 ALGORITHMS = ['RS256']
 API_AUDIENCE = 'movie-udacity-api'
 

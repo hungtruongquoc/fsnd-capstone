@@ -10,15 +10,20 @@ from helpers.string import is_empty_string
 RECORDS_PER_PAGE = 10
 
 
-def create_app(test_config=None):
+def create_app(testing=None, test_config=None):
     app = Flask(__name__)
+    app.testing = testing
     setup_db(app)
     CORS(app)
 
     @app.route('/')
     def get_greeting():
-        excited = os.environ['EXCITED']
+        excited = ''
+        if 'EXCITED' in os.environ:
+            excited = os.environ['EXCITED']
+
         greeting = "Hello"
+
         if excited == 'true':
             greeting = greeting + "!!!!!"
         return greeting
@@ -54,7 +59,7 @@ def create_app(test_config=None):
         if (gender_values is not None) and (len(gender_values) > 0):
             enum_objs = list(map(lambda value: GenderEnum(value), gender_values))
             query = query.filter(Actor.gender.in_(enum_objs))
-        print(query)
+
         if is_empty_string(name):
             query = query.filter(Actor.name.ilike('%' + name + '%'))
 
@@ -70,8 +75,9 @@ def create_app(test_config=None):
                 'currentPage': pagination['current_page'],
                 'perPage': pagination['per_page'],
                 'filters': {'genders': gender_values},
-                'sortField': pagination['sort_field'],
-                'sortOrder': pagination['sort_order']
+                'sortField': pagination['sort_field'] if 'sort_field' in pagination else '',
+                'sortOrder': pagination['sort_order'] if 'sort_order' in pagination else '',
+                'success': True
             })
         else:
             actors = query.all()
@@ -89,7 +95,7 @@ def create_app(test_config=None):
         print('New actor: ')
         print(request.json)
         name = request.json['name']
-        age = request.json['age']
+        age = int(request.json['age']) if 'age' in request.json else 0
 
         if (name is None) or ('' == name) or (len(name) < 5):
             print('Invalid name provided')
@@ -172,7 +178,8 @@ def create_app(test_config=None):
                 'movies': list(map(lambda movie: movie.format(), movies.items)),
                 'totalCount': movies.total,
                 'currentPage': pagination['current_page'],
-                'perPage': pagination['per_page']
+                'perPage': pagination['per_page'],
+                'success': True
             })
 
     @app.route('/api/movies', methods=['POST'])
@@ -181,13 +188,13 @@ def create_app(test_config=None):
         print('New movie: ')
         print(request.json)
         title = request.json['title']
-        release = int(request.json['releaseDate'])
+        release = int(request.json['releaseDate']) if 'releaseDate' in request.json else 0
 
         if (title is None) or ('' == title) or (len(title) < 5):
             print('Invalid title provided')
             abort(422)
 
-        if release is None:
+        if (release is None) or (0 == release):
             print('Invalid release provided')
             abort(422)
 
@@ -240,7 +247,7 @@ def create_app(test_config=None):
         try:
             return jsonify({
                 'crews': list(map(lambda crew: crew.format(), crew_list)),
-                'success': False,
+                'success': True,
             })
         except Exception as e:
             print(e)
@@ -253,20 +260,28 @@ def create_app(test_config=None):
         movie_id = request.json['movie_id']
         artist_list = request.json['artists']
 
+        if movie_id is None:
+            print('No movie found')
+            abort(422)
+
         records = Crew.query.filter(Crew.movie_id == request.json['movie_id']).all()
 
         if len(records) > 0:
             for record in records:
                 record.delete_from_db()
 
-        try:
-            for val in artist_list:
-                new_crew = Crew(actor_id=val, movie_id=movie_id)
-                new_crew.save_to_db()
+        if artist_list is not None:
+            try:
+                for val in artist_list:
+                    new_crew = Crew(actor_id=val, movie_id=movie_id)
+                    new_crew.save_to_db()
 
-            return jsonify({'success': True, 'result': request.json})
-        except Exception as e:
-            print(e)
+                return jsonify({'success': True, 'result': request.json})
+            except Exception as e:
+                print(e)
+                abort(422)
+        else:
+            print('No artist list found')
             abort(422)
 
     # Error Handling
